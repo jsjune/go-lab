@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package item;
+
+option go_package = "go-sample-http/gen/item";
+
+service ItemService {
+  rpc ListItems   (ListItemsRequest)   returns (ListItemsResponse);
+  rpc GetItem     (GetItemRequest)     returns (ItemResponse);
+  rpc CreateItem  (CreateItemRequest)  returns (ItemResponse);
+  rpc UpdateItem  (UpdateItemRequest)  returns (ItemResponse);
+  rpc DeleteItem  (DeleteItemRequest)  returns (DeleteItemResponse);
+}
+
+message ListItemsRequest {}
+
+message ListItemsResponse {
+  repeated ItemResponse items = 1;
+}
+
+message GetItemRequest {
+  int64 id = 1;
+}
+
+message CreateItemRequest {
+  string name        = 1;
+  string description = 2;
+}
+
+message UpdateItemRequest {
+  int64  id          = 1;
+  string name        = 2;
+  string description = 3;
+}
+
+message DeleteItemRequest {
+  int64 id = 1;
+}
+
+message DeleteItemResponse {}
+
+message ItemResponse {
+  int64  id          = 1;
+  string name        = 2;
+  string description = 3;
+  string created_at  = 4;
+}
