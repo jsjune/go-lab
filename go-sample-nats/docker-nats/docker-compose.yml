@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  nats:
+    image: nats:latest
+    container_name: nats-server
+    ports:
+      - "4222:4222" # 클라이언트 연결 포트
+      - "8222:8222" # HTTP 모니터링 포트
+      - "6222:6222" # 클러스터링 포트 (추후 확장용)
+    command:
+      - "-js" # JetStream 활성화
+      - "-m" # 모니터링 활성화
+      - "8222" # 모니터링 포트
+      - "--config" # 설정 파일 사용
+      - "/config/nats.conf" # 설정 파일 경로
+    volumes:
+      - ./nats.conf:/config/nats.conf:ro
+      - nats-data:/data # JetStream 데이터 영속성
+    networks:
+      - nats-network
+    restart: unless-stopped
+
+  nui:
+    image: ghcr.io/nats-nui/nui:latest
+    container_name: nats-nui
+    ports:
+      - "31311:31311" # NUI 웹 포트
+    networks:
+      - nats-network
+    depends_on:
+      - nats
+    restart: unless-stopped
+
+volumes:
+  nats-data:
+    driver: local
+
+networks:
+  nats-network:
+    driver: bridge
