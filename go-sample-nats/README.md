@@ -15,6 +15,11 @@ go-sample-nats/
 |   `-- main.go              # 기본 Pub/Sub 예제
 |-- request-reply/
 |   `-- main.go              # Request/Reply 예제
+|-- gin-request-reply/
+|   |-- server-a/
+|   |   `-- main.go          # HTTP SSE 요청을 NATS request-reply로 중계
+|   `-- server-b/
+|       `-- main.go          # NATS 요청을 받아 목 스트림 데이터 응답
 |-- routing/
 |   `-- main.go              # 와일드카드 subject 라우팅 예제
 |-- go.mod
@@ -89,6 +94,64 @@ go run ./request-reply
 ```bash
 go run ./routing
 ```
+
+Gin + Request/Reply + SSE 예제:
+
+터미널 1에서 server-b를 먼저 실행합니다.
+
+```bash
+go run ./gin-request-reply/server-b
+```
+
+터미널 2에서 server-a를 실행합니다.
+
+```bash
+go run ./gin-request-reply/server-a
+```
+
+터미널 3에서 SSE 스트림을 호출합니다.
+
+```bash
+curl -N "http://localhost:8080/stream?clientId=demo"
+```
+
+server-a는 HTTP 클라이언트와 SSE로 연결하고, NATS에는 `sample.stream.request` subject로 request-reply 요청을 보냅니다. server-b는 요청의 reply subject로 300ms 간격의 목 데이터 5개를 응답하고, server-a는 그 응답을 SSE 이벤트로 클라이언트에 전달합니다.
+
+통신 구조:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant A as server-a<br/>Gin SSE
+    participant NATS as NATS
+    participant B as server-b<br/>stream worker
+
+    Client->>A: GET /stream?clientId=demo
+    A-->>Client: HTTP 200 text/event-stream
+
+    A->>NATS: Subscribe reply inbox<br/>_INBOX.xxx
+    A->>NATS: PublishRequest<br/>subject=sample.stream.request<br/>reply=_INBOX.xxx
+    NATS->>B: Deliver request<br/>sample.stream.request
+
+    loop 5 mock events / 300ms
+        B->>NATS: Publish reply<br/>subject=_INBOX.xxx
+        NATS->>A: Deliver reply event
+        A-->>Client: SSE event: message
+    end
+
+    A-->>Client: close SSE after done=true
+    A->>NATS: Unsubscribe reply inbox
+```
+
+요청/응답 방향을 단순화하면 다음과 같습니다.
+
+```text
+Client <-SSE-> server-a --NATS request--> server-b
+Client <-SSE-- server-a <--NATS reply inbox-- server-b
+```
+
+이 샘플은 `nc.Request(...)`처럼 단일 응답만 받는 기본 request-reply가 아니라, `PublishRequest(...)`로 reply inbox를 지정하고 그 inbox를 구독해서 여러 개의 응답을 스트림처럼 받는 형태입니다.
 
 ---
 
