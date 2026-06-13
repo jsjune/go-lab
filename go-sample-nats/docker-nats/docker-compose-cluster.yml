@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  nats-1:
+    image: nats:latest
+    container_name: nats-1
+    ports:
+      - "4222:4222" # 클라이언트 연결 포트 (Node 1)
+      - "8222:8222" # HTTP 모니터링 포트 (Node 1)
+    command:
+      - "--config"
+      - "/config/nats.conf"
+      - "--name"
+      - "nats-1"
+      - "-cluster"
+      - "nats://0.0.0.0:6222"
+      - "-routes"
+      - "nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "--cluster_name"
+      - "nats-cluster"
+    volumes:
+      - ./nats.conf:/config/nats.conf:ro
+      - nats-data-1:/data # Node 1용 JetStream 데이터 볼륨
+    networks:
+      - nats-network
+    restart: unless-stopped
+
+  nats-2:
+    image: nats:latest
+    container_name: nats-2
+    ports:
+      - "4223:4222" # 클라이언트 연결 포트 (Node 2)
+      - "8223:8222" # HTTP 모니터링 포트 (Node 2)
+    command:
+      - "--config"
+      - "/config/nats.conf"
+      - "--name"
+      - "nats-2"
+      - "-cluster"
+      - "nats://0.0.0.0:6222"
+      - "-routes"
+      - "nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "--cluster_name"
+      - "nats-cluster"
+    volumes:
+      - ./nats.conf:/config/nats.conf:ro
+      - nats-data-2:/data # Node 2용 JetStream 데이터 볼륨
+    networks:
+      - nats-network
+    restart: unless-stopped
+
+  nats-3:
+    image: nats:latest
+    container_name: nats-3
+    ports:
+      - "4224:4222" # 클라이언트 연결 포트 (Node 3)
+      - "8224:8222" # HTTP 모니터링 포트 (Node 3)
+    command:
+      - "--config"
+      - "/config/nats.conf"
+      - "--name"
+      - "nats-3"
+      - "-cluster"
+      - "nats://0.0.0.0:6222"
+      - "-routes"
+      - "nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "--cluster_name"
+      - "nats-cluster"
+    volumes:
+      - ./nats.conf:/config/nats.conf:ro
+      - nats-data-3:/data # Node 3용 JetStream 데이터 볼륨
+    networks:
+      - nats-network
+    restart: unless-stopped
+
+  nui:
+    image: ghcr.io/nats-nui/nui:latest
+    container_name: nats-nui
+    ports:
+      - "31311:31311" # NUI 웹 포트
+    networks:
+      - nats-network
+    depends_on:
+      - nats-1
+      - nats-2
+      - nats-3
+    restart: unless-stopped
+
+volumes:
+  nats-data-1:
+    driver: local
+  nats-data-2:
+    driver: local
+  nats-data-3:
+    driver: local
+
+networks:
+  nats-network:
+    driver: bridge
